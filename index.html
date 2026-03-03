@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIM//FORGE — Esport Aim Trainer</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050a0f;
+    --panel: #080e16;
+    --border: #0d2033;
+    --accent: #00d4ff;
+    --accent2: #ff3860;
+    --accent3: #39ff14;
+    --gold: #ffd700;
+    --text: #c8dde8;
+    --dim: #4a6070;
+    --easy: #39ff14;
+    --medium: #ff9500;
+    --hard: #ff3860;
+    --pro: #bf00ff;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    cursor: crosshair;
+    user-select: none;
+  }
+
+  /* SCANLINE OVERLAY */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,212,255,0.015) 2px,
+      rgba(0,212,255,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* GRID BACKGROUND */
+  #arena {
+    position: fixed;
+    inset: 0;
+    background:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px),
+      radial-gradient(ellipse at 50% 50%, #040c18 0%, #020508 100%);
+    background-size: 40px 40px, 40px 40px, 100% 100%;
+  }
+
+  /* CORNER MARKS */
+  #arena::before, #arena::after {
+    content: '';
+    position: absolute;
+    width: 80px; height: 80px;
+    border-color: var(--accent);
+    border-style: solid;
+    opacity: 0.3;
+  }
+  #arena::before { top: 16px; left: 16px; border-width: 2px 0 0 2px; }
+  #arena::after  { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; }
+
+  /* ===== MENU SCREEN ===== */
+  #menu {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    gap: 0;
+  }
+
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    color: #fff;
+    text-shadow:
+      0 0 20px var(--accent),
+      0 0 60px rgba(0,212,255,0.3);
+    animation: logoPulse 3s ease-in-out infinite;
+    line-height: 1;
+  }
+  .logo span { color: var(--accent); }
+
+  @keyframes logoPulse {
+    0%,100% { text-shadow: 0 0 20px var(--accent), 0 0 60px rgba(0,212,255,0.3); }
+    50% { text-shadow: 0 0 40px var(--accent), 0 0 100px rgba(0,212,255,0.5), 0 0 160px rgba(0,212,255,0.2); }
+  }
+
+  .tagline {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--dim);
+    letter-spacing: 0.3em;
+    margin: 8px 0 40px;
+    text-transform: uppercase;
+  }
+
+  .menu-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+    width: min(500px, 90vw);
+  }
+
+  .level-btn {
+    position: relative;
+    padding: 22px 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    cursor: crosshair;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+    overflow: hidden;
+  }
+
+  .level-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .level-btn:hover::before { opacity: 1; }
+
+  .level-btn[data-level="easy"]   { color: var(--easy);   border-color: var(--easy);   }
+  .level-btn[data-level="medium"] { color: var(--medium); border-color: var(--medium); }
+  .level-btn[data-level="hard"]   { color: var(--hard);   border-color: var(--hard);   }
+  .level-btn[data-level="pro"]    { color: var(--pro);    border-color: var(--pro);    }
+
+  .level-btn[data-level="easy"]::before   { background: rgba(57,255,20,0.08); }
+  .level-btn[data-level="medium"]::before { background: rgba(255,149,0,0.08); }
+  .level-btn[data-level="hard"]::before   { background: rgba(255,56,96,0.08); }
+  .level-btn[data-level="pro"]::before    { background: rgba(191,0,255,0.08); }
+
+  .level-btn:hover { transform: translateY(-2px); }
+  .level-btn:hover[data-level="easy"]   { box-shadow: 0 0 20px rgba(57,255,20,0.4);  }
+  .level-btn:hover[data-level="medium"] { box-shadow: 0 0 20px rgba(255,149,0,0.4); }
+  .level-btn:hover[data-level="hard"]   { box-shadow: 0 0 20px rgba(255,56,96,0.4);  }
+  .level-btn:hover[data-level="pro"]    { box-shadow: 0 0 20px rgba(191,0,255,0.4);  }
+
+  .level-btn .lvl-name { display: block; font-size: 1.1rem; margin-bottom: 4px; }
+  .level-btn .lvl-desc { display: block; font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; color: var(--dim); letter-spacing: 0.05em; }
+
+  .time-select-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--dim);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .time-btns {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+
+  .time-btn {
+    padding: 10px 24px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.8rem;
+    cursor: crosshair;
+    transition: all 0.2s;
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  }
+
+  .time-btn.active, .time-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 12px rgba(0,212,255,0.3);
+  }
+
+  /* ===== HUD ===== */
+  #hud {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: linear-gradient(180deg, rgba(5,10,15,0.95) 0%, transparent 100%);
+    border-bottom: 1px solid var(--border);
+    z-index: 50;
+    display: none;
+  }
+
+  .hud-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    min-width: 80px;
+  }
+
+  .hud-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--dim);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  .hud-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+  }
+
+  #timerBar {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    height: 3px;
+    background: var(--accent);
+    transition: width 0.1s linear;
+    z-index: 50;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  .hud-level-tag {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border: 1px solid currentColor;
+    clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  }
+
+  /* CROSSHAIR INDICATOR */
+  #crosshairDot {
+    position: fixed;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    z-index: 200;
+    box-shadow: 0 0 6px var(--accent);
+    transition: transform 0.05s;
+  }
+
+  /* ===== TARGETS ===== */
+  .target {
+    position: absolute;
+    border-radius: 50%;
+    cursor: crosshair;
+    transform: translate(-50%, -50%) scale(0);
+    animation: targetSpawn 0.15s forwards;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  @keyframes targetSpawn {
+    0%   { transform: translate(-50%,-50%) scale(0); opacity: 0; }
+    60%  { transform: translate(-50%,-50%) scale(1.15); opacity: 1; }
+    100% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+  }
+
+  .target::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: inherit;
+    opacity: 0.15;
+    animation: targetPulse 0.8s ease-in-out infinite;
+  }
+
+  .target::after {
+    content: '+';
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    color: rgba(255,255,255,0.6);
+    font-size: 60%;
+    position: relative;
+    z-index: 2;
+  }
+
+  @keyframes targetPulse {
+    0%,100% { transform: scale(1); opacity: 0.15; }
+    50%      { transform: scale(1.5); opacity: 0; }
+  }
+
+  .target .ring {
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3);
+  }
+
+  .target .shrink-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.5);
+    animation: shrinkRing linear forwards;
+  }
+
+  @keyframes shrinkRing {
+    from { width: 200%; height: 200%; top: -50%; left: -50%; opacity: 0.5; }
+    to   { width: 100%; height: 100%; top: 0; left: 0; opacity: 0; }
+  }
+
+  /* HIT EFFECT */
+  .hit-burst {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0);
+    animation: hitBurst 0.35s forwards;
+    z-index: 300;
+  }
+
+  @keyframes hitBurst {
+    0%   { transform: translate(-50%,-50%) scale(0); opacity: 1; }
+    100% { transform: translate(-50%,-50%) scale(3); opacity: 0; }
+  }
+
+  .hit-text {
+    position: absolute;
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 1.1rem;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    animation: hitTextFly 0.6s forwards;
+    z-index: 301;
+    text-shadow: 0 0 10px currentColor;
+  }
+
+  @keyframes hitTextFly {
+    0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, calc(-50% - 60px)) scale(0.8); opacity: 0; }
+  }
+
+  .miss-flash {
+    position: fixed;
+    inset: 0;
+    background: rgba(255,56,96,0.08);
+    pointer-events: none;
+    animation: missFlash 0.3s forwards;
+    z-index: 400;
+  }
+
+  @keyframes missFlash {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ===== RESULT SCREEN ===== */
+  #result {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 100;
+    background: rgba(5,10,15,0.92);
+    backdrop-filter: blur(4px);
+  }
+
+  .result-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(1.5rem, 4vw, 3rem);
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    color: #fff;
+    text-shadow: 0 0 30px var(--accent);
+    margin-bottom: 8px;
+    animation: resultReveal 0.5s forwards;
+  }
+
+  @keyframes resultReveal {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 32px 48px;
+    margin: 24px 0;
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+    min-width: min(440px, 90vw);
+    animation: resultReveal 0.5s 0.1s both;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat-row:last-child { border-bottom: none; }
+
+  .stat-name {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--dim);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .stat-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .stat-val.highlight { color: var(--accent); text-shadow: 0 0 12px var(--accent); }
+  .stat-val.good      { color: var(--easy);  text-shadow: 0 0 12px var(--easy); }
+  .stat-val.bad       { color: var(--hard);  text-shadow: 0 0 12px var(--hard); }
+
+  .rank-badge {
+    font-family: 'Orbitron', monospace;
+    font-size: 2.5rem;
+    font-weight: 900;
+    padding: 16px 32px;
+    border: 2px solid;
+    clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+    letter-spacing: 0.15em;
+    animation: resultReveal 0.5s 0.2s both;
+  }
+
+  .result-btns {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    animation: resultReveal 0.5s 0.3s both;
+  }
+
+  .btn-primary, .btn-secondary {
+    padding: 14px 32px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    cursor: crosshair;
+    transition: all 0.2s;
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+    border: none;
+  }
+
+  .btn-primary  {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .btn-primary:hover  { box-shadow: 0 0 20px var(--accent); transform: translateY(-2px); }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--dim);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+
+  /* STREAK COUNTER */
+  #streakDisplay {
+    position: fixed;
+    top: 70px;
+    right: 20px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    color: var(--gold);
+    display: none;
+    align-items: center;
+    gap: 6px;
+    z-index: 55;
+  }
+
+  .streak-num {
+    font-size: 1.4rem;
+    font-weight: 900;
+    text-shadow: 0 0 10px var(--gold);
+  }
+
+  /* COUNTDOWN */
+  #countdown {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 150;
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(8rem, 20vw, 16rem);
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 0 60px var(--accent);
+    animation: countPulse 0.8s ease-out;
+  }
+
+  @keyframes countPulse {
+    0%   { transform: scale(1.5); opacity: 0; }
+    40%  { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* COMBO MULTIPLIER */
+  #comboDisplay {
+    position: fixed;
+    left: 50%;
+    top: 75px;
+    transform: translateX(-50%);
+    display: none;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+    z-index: 55;
+    text-shadow: 0 0 8px var(--gold);
+  }
+
+  /* ACC BAR */
+  #accBar {
+    width: 120px;
+    height: 4px;
+    background: var(--border);
+    margin-top: 4px;
+    overflow: hidden;
+    border-radius: 2px;
+  }
+
+  #accFill {
+    height: 100%;
+    background: var(--easy);
+    transition: width 0.3s, background 0.3s;
+    border-radius: 2px;
+  }
+
+  /* MISC */
+  .glow-line {
+    width: min(400px, 80vw);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    margin: 12px 0;
+    opacity: 0.4;
+  }
+
+  #pauseOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5,10,15,0.8);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 90;
+    font-family: 'Orbitron', monospace;
+    font-size: 3rem;
+    font-weight: 900;
+    color: var(--dim);
+    letter-spacing: 0.3em;
+  }
+</style>
+</head>
+<body>
+
+<div id="arena"></div>
+<div id="crosshairDot"></div>
+
+<!-- TIMER BAR -->
+<div id="timerBar" style="width:100%"></div>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-block">
+    <span class="hud-label">Score</span>
+    <span class="hud-value" id="hudScore">0</span>
+  </div>
+  <div class="hud-block">
+    <span class="hud-label">Hits</span>
+    <span class="hud-value" id="hudHits">0</span>
+  </div>
+  <div class="hud-block">
+    <span class="hud-level-tag" id="hudLevel">EASY</span>
+  </div>
+  <div class="hud-block">
+    <span class="hud-label">Accuracy</span>
+    <span class="hud-value" id="hudAcc">—</span>
+    <div id="accBar"><div id="accFill" style="width:0%"></div></div>
+  </div>
+  <div class="hud-block">
+    <span class="hud-label">Time</span>
+    <span class="hud-value" id="hudTime">30</span>
+  </div>
+</div>
+
+<!-- STREAK -->
+<div id="streakDisplay">
+  <span style="font-size:0.65rem;letter-spacing:0.1em">STREAK</span>
+  <span class="streak-num" id="streakNum">0</span>
+  <span>🔥</span>
+</div>
+
+<!-- COMBO -->
+<div id="comboDisplay" id="comboDisplay">x1 COMBO</div>
+
+<!-- MENU -->
+<div id="menu">
+  <div class="logo">AIM<span>//</span>FORGE</div>
+  <div class="tagline">⚡ Esport Precision Training System ⚡</div>
+  <div class="glow-line"></div>
+
+  <div class="time-select-label">SELECT DURATION</div>
+  <div class="time-btns">
+    <button class="time-btn active" data-time="30">30s</button>
+    <button class="time-btn" data-time="60">60s</button>
+    <button class="time-btn" data-time="90">90s</button>
+  </div>
+
+  <div class="time-select-label">SELECT DIFFICULTY</div>
+  <div class="menu-grid">
+    <button class="level-btn" data-level="easy">
+      <span class="lvl-name">Easy</span>
+      <span class="lvl-desc">Large • Slow • 3 targets</span>
+    </button>
+    <button class="level-btn" data-level="medium">
+      <span class="lvl-name">Medium</span>
+      <span class="lvl-desc">Normal • Moderate • 3 targets</span>
+    </button>
+    <button class="level-btn" data-level="hard">
+      <span class="lvl-name">Hard</span>
+      <span class="lvl-desc">Small • Fast • 3 targets</span>
+    </button>
+    <button class="level-btn" data-level="pro">
+      <span class="lvl-name">Pro</span>
+      <span class="lvl-desc">Tiny • Frantic • 4 targets</span>
+    </button>
+  </div>
+  <div class="glow-line"></div>
+  <div style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--dim);letter-spacing:0.15em">
+    CLICK TARGETS · ESC TO PAUSE · MISS = PENALTY
+  </div>
+</div>
+
+<!-- COUNTDOWN -->
+<div id="countdown">3</div>
+
+<!-- PAUSE -->
+<div id="pauseOverlay">[ PAUSED ]</div>
+
+<!-- RESULT -->
+<div id="result">
+  <div class="result-title">SESSION COMPLETE</div>
+  <div class="glow-line" style="margin:0 0 8px"></div>
+  <div class="result-card">
+    <div class="stat-row">
+      <span class="stat-name">Final Score</span>
+      <span class="stat-val highlight" id="resScore">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-name">Targets Hit</span>
+      <span class="stat-val" id="resHits">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-name">Targets Missed</span>
+      <span class="stat-val bad" id="resMisses">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-name">Accuracy</span>
+      <span class="stat-val" id="resAcc">0%</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-name">Avg Reaction</span>
+      <span class="stat-val" id="resReaction">—ms</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-name">Best Streak</span>
+      <span class="stat-val good" id="resStreak">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-name">Level</span>
+      <span class="stat-val" id="resLevel">EASY</span>
+    </div>
+  </div>
+  <div class="rank-badge" id="rankBadge">B</div>
+  <div class="result-btns">
+    <button class="btn-primary" id="btnRetry">RETRY</button>
+    <button class="btn-secondary" id="btnMenu">MAIN MENU</button>
+  </div>
+</div>
+
+<script>
+// ==================== STATE ====================
+const LEVELS = {
+  easy:   { color: '#39ff14', minR: 40, maxR: 58, lifeMin: 2800, lifeMax: 3600, spawnDelay: 180, label: 'EASY',   scoreBase: 10, penaltyMiss: 3 },
+  medium: { color: '#ff9500', minR: 26, maxR: 38, lifeMin: 1400, lifeMax: 2000, spawnDelay: 120, label: 'MED',    scoreBase: 20, penaltyMiss: 5 },
+  hard:   { color: '#ff3860', minR: 16, maxR: 26, lifeMin: 750,  lifeMax: 1200, spawnDelay: 80,  label: 'HARD',   scoreBase: 35, penaltyMiss: 8 },
+  pro:    { color: '#bf00ff', minR: 10, maxR: 18, lifeMin: 400,  lifeMax: 700,  spawnDelay: 40,  label: 'PRO',    scoreBase: 60, penaltyMiss: 12 }
+};
+
+let state = {
+  phase: 'menu',
+  level: 'easy',
+  duration: 30,
+  score: 0,
+  hits: 0,
+  misses: 0,
+  clicks: 0,
+  streak: 0,
+  bestStreak: 0,
+  combo: 1,
+  targets: [],
+  timerId: null,
+  spawnId: null,
+  timeLeft: 30,
+  paused: false,
+  reactionTimes: [],
+  startTs: 0
+};
+
+// ==================== DOM ====================
+const menu        = document.getElementById('menu');
+const hud         = document.getElementById('hud');
+const result      = document.getElementById('result');
+const countdown   = document.getElementById('countdown');
+const arena       = document.getElementById('arena');
+const timerBar    = document.getElementById('timerBar');
+const hudScore    = document.getElementById('hudScore');
+const hudHits     = document.getElementById('hudHits');
+const hudAcc      = document.getElementById('hudAcc');
+const hudTime     = document.getElementById('hudTime');
+const hudLevel    = document.getElementById('hudLevel');
+const accFill     = document.getElementById('accFill');
+const streakDisp  = document.getElementById('streakDisplay');
+const streakNum   = document.getElementById('streakNum');
+const comboDisp   = document.getElementById('comboDisplay');
+const pauseOverlay= document.getElementById('pauseOverlay');
+const crosshair   = document.getElementById('crosshairDot');
+
+// ==================== CURSOR ====================
+document.addEventListener('mousemove', e => {
+  crosshair.style.left = e.clientX + 'px';
+  crosshair.style.top  = e.clientY + 'px';
+});
+
+// ==================== MENU INTERACTIONS ====================
+document.querySelectorAll('.time-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.duration = parseInt(btn.dataset.time);
+  });
+});
+
+document.querySelectorAll('.level-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.level = btn.dataset.level;
+    startCountdown();
+  });
+});
+
+document.getElementById('btnRetry').addEventListener('click', () => startCountdown());
+document.getElementById('btnMenu').addEventListener('click', () => showMenu());
+
+// ESC = pause
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.phase === 'game') togglePause();
+});
+
+// Miss click on arena
+document.addEventListener('click', e => {
+  if (state.phase !== 'game' || state.paused) return;
+  if (e.target === arena || e.target.id === 'timerBar' || e.target === document.body) {
+    registerMiss(e.clientX, e.clientY);
+  }
+});
+
+// ==================== FLOW ====================
+function showMenu() {
+  clearAll();
+  state.phase = 'menu';
+  menu.style.display = 'flex';
+  hud.style.display  = 'none';
+  result.style.display = 'none';
+  streakDisp.style.display = 'none';
+  comboDisp.style.display  = 'none';
+}
+
+function startCountdown() {
+  clearAll();
+  menu.style.display   = 'none';
+  result.style.display = 'none';
+  countdown.style.display = 'flex';
+
+  let count = 3;
+  countdown.textContent = count;
+  countdown.style.animation = 'none';
+  void countdown.offsetWidth;
+  countdown.style.animation = 'countPulse 0.8s ease-out';
+
+  const tick = setInterval(() => {
+    count--;
+    if (count <= 0) {
+      clearInterval(tick);
+      countdown.style.display = 'none';
+      startGame();
+    } else {
+      countdown.textContent = count;
+      countdown.style.animation = 'none';
+      void countdown.offsetWidth;
+      countdown.style.animation = 'countPulse 0.8s ease-out';
+    }
+  }, 900);
+}
+
+function startGame() {
+  const cfg = LEVELS[state.level];
+  state.phase    = 'game';
+  state.score    = 0;
+  state.hits     = 0;
+  state.misses   = 0;
+  state.clicks   = 0;
+  state.streak   = 0;
+  state.bestStreak = 0;
+  state.combo    = 1;
+  state.targets  = [];
+  state.timeLeft = state.duration;
+  state.paused   = false;
+  state.reactionTimes = [];
+  state.startTs  = performance.now();
+
+  hud.style.display = 'flex';
+  hudLevel.textContent = cfg.label;
+  hudLevel.style.color = cfg.color;
+  hudLevel.style.borderColor = cfg.color;
+  streakDisp.style.display = 'flex';
+  comboDisp.style.display  = 'block';
+
+  updateHUD();
+  runTimer();
+  scheduleSpawn();
+}
+
+function runTimer() {
+  const total = state.duration;
+  state.timerId = setInterval(() => {
+    if (state.paused) return;
+    state.timeLeft--;
+    hudTime.textContent = state.timeLeft;
+    timerBar.style.width = (state.timeLeft / total * 100) + '%';
+
+    if (state.timeLeft <= 5) {
+      timerBar.style.background = 'var(--hard)';
+      timerBar.style.boxShadow = '0 0 8px var(--hard)';
+    } else if (state.timeLeft <= 10) {
+      timerBar.style.background = 'var(--medium)';
+      timerBar.style.boxShadow = '0 0 8px var(--medium)';
+    }
+
+    if (state.timeLeft <= 0) {
+      clearInterval(state.timerId);
+      setTimeout(endGame, 400);
+    }
+  }, 1000);
+}
+
+function scheduleSpawn() {
+  // Just spawn the first target — after that, each hit/expire triggers the next
+  setTimeout(() => {
+    if (state.phase === 'game') spawnTarget();
+  }, 100);
+}
+
+function spawnTarget() {
+  const cfg = LEVELS[state.level];
+  const r = randInt(cfg.minR, cfg.maxR);
+  const pad = r + 20;
+  const hudH = 70;
+  const x = randInt(pad, window.innerWidth - pad);
+  const y = randInt(pad + hudH, window.innerHeight - pad);
+  const life = randInt(cfg.lifeMin, cfg.lifeMax);
+  const spawnTime = performance.now();
+
+  const el = document.createElement('div');
+  el.className = 'target';
+  el.style.cssText = `
+    left:${x}px; top:${y}px;
+    width:${r*2}px; height:${r*2}px;
+    background: radial-gradient(circle at 35% 35%, ${lighten(cfg.color, 40)} 0%, ${cfg.color} 40%, ${darken(cfg.color, 30)} 100%);
+    box-shadow: 0 0 ${r*0.6}px ${cfg.color}88, inset 0 0 ${r*0.3}px rgba(255,255,255,0.2);
+    border: 2px solid ${cfg.color};
+  `;
+
+  const ring = document.createElement('div');
+  ring.className = 'ring';
+  el.appendChild(ring);
+
+  // shrink countdown ring
+  const shrink = document.createElement('div');
+  shrink.className = 'shrink-ring';
+  shrink.style.animationDuration = life + 'ms';
+  el.appendChild(shrink);
+
+  arena.appendChild(el);
+
+  const tid = {
+    el, x, y, r,
+    spawnTime,
+    expireId: setTimeout(() => expireTarget(tid), life)
+  };
+
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    hitTarget(tid, e.clientX, e.clientY);
+  });
+
+  state.targets.push(tid);
+}
+
+function hitTarget(tid, cx, cy) {
+  if (state.phase !== 'game' || state.paused) return;
+
+  const reaction = Math.round(performance.now() - tid.spawnTime);
+  state.reactionTimes.push(reaction);
+
+  const cfg = LEVELS[state.level];
+  clearTimeout(tid.expireId);
+  removeTarget(tid);
+
+  // score with combo + reaction bonus
+  let bonus = reaction < 400 ? 3 : reaction < 700 ? 2 : 1;
+  let pts = Math.round(cfg.scoreBase * state.combo * bonus);
+  state.score += pts;
+  state.hits++;
+  state.clicks++;
+  state.streak++;
+  if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+
+  // combo system
+  if (state.streak >= 3)  state.combo = 2;
+  if (state.streak >= 6)  state.combo = 3;
+  if (state.streak >= 10) state.combo = 4;
+
+  // fx
+  spawnHitBurst(cx, cy, cfg.color);
+  spawnHitText(cx, cy, '+' + pts, cfg.color);
+  updateHUD();
+  // spawn next after level-tuned delay
+  setTimeout(() => { if (state.phase === 'game' && !state.paused) spawnTarget(); }, cfg.spawnDelay);
+}
+
+function expireTarget(tid) {
+  if (!state.targets.includes(tid)) return;
+  removeTarget(tid);
+  const cfg = LEVELS[state.level];
+  state.misses++;
+  state.score = Math.max(0, state.score - cfg.penaltyMiss);
+  state.streak = 0;
+  state.combo  = 1;
+  flashMiss();
+  updateHUD();
+  // spawn next after level-tuned delay
+  setTimeout(() => { if (state.phase === 'game' && !state.paused) spawnTarget(); }, cfg.spawnDelay);
+}
+
+function registerMiss(cx, cy) {
+  state.misses++;
+  state.clicks++;
+  state.score = Math.max(0, state.score - LEVELS[state.level].penaltyMiss);
+  state.streak = 0;
+  state.combo  = 1;
+  flashMiss();
+  spawnHitText(cx, cy, 'MISS', '#ff3860');
+  updateHUD();
+}
+
+function removeTarget(tid) {
+  state.targets = state.targets.filter(t => t !== tid);
+  if (tid.el && tid.el.parentNode) {
+    tid.el.style.animation = 'hitBurst 0.2s forwards';
+    setTimeout(() => { if (tid.el.parentNode) tid.el.remove(); }, 200);
+  }
+}
+
+function pruneExpired() {
+  state.targets = state.targets.filter(t => t.el.parentNode);
+}
+
+function togglePause() {
+  state.paused = !state.paused;
+  pauseOverlay.style.display = state.paused ? 'flex' : 'none';
+}
+
+function clearAll() {
+  clearInterval(state.timerId);
+  state.targets.forEach(t => { clearTimeout(t.expireId); if (t.el.parentNode) t.el.remove(); });
+  state.targets = [];
+  document.querySelectorAll('.hit-burst, .hit-text, .miss-flash').forEach(e => e.remove());
+  timerBar.style.width = '100%';
+  timerBar.style.background = 'var(--accent)';
+  timerBar.style.boxShadow = '0 0 8px var(--accent)';
+  pauseOverlay.style.display = 'none';
+}
+
+function endGame() {
+  clearAll();
+  state.phase = 'result';
+  hud.style.display = 'none';
+  streakDisp.style.display = 'none';
+  comboDisp.style.display  = 'none';
+
+  const acc = state.clicks > 0 ? Math.round(state.hits / state.clicks * 100) : 0;
+  const avgReact = state.reactionTimes.length > 0
+    ? Math.round(state.reactionTimes.reduce((a, b) => a + b, 0) / state.reactionTimes.length)
+    : 0;
+
+  document.getElementById('resScore').textContent    = state.score;
+  document.getElementById('resHits').textContent     = state.hits;
+  document.getElementById('resMisses').textContent   = state.misses;
+  document.getElementById('resAcc').textContent      = acc + '%';
+  document.getElementById('resReaction').textContent = avgReact ? avgReact + 'ms' : '—';
+  document.getElementById('resStreak').textContent   = state.bestStreak;
+  document.getElementById('resLevel').textContent    = LEVELS[state.level].label;
+
+  // Rank
+  const rank = getrank(acc, state.score, state.level);
+  const rb = document.getElementById('rankBadge');
+  rb.textContent = rank.letter;
+  rb.style.color = rank.color;
+  rb.style.borderColor = rank.color;
+  rb.style.textShadow = `0 0 20px ${rank.color}`;
+
+  const accEl = document.getElementById('resAcc');
+  accEl.className = 'stat-val ' + (acc >= 80 ? 'good' : acc >= 60 ? '' : 'bad');
+
+  result.style.display = 'flex';
+}
+
+function getrank(acc, score, level) {
+  const mul = {easy:1, medium:1.5, hard:2, pro:3}[level];
+  const norm = (acc * 0.6 + Math.min(score / (mul * 30), 40));
+  if (norm >= 85)       return { letter: 'S', color: '#ffd700' };
+  if (norm >= 70)       return { letter: 'A', color: '#39ff14' };
+  if (norm >= 55)       return { letter: 'B', color: '#00d4ff' };
+  if (norm >= 40)       return { letter: 'C', color: '#ff9500' };
+  if (norm >= 25)       return { letter: 'D', color: '#ff3860' };
+  return                       { letter: 'F', color: '#666' };
+}
+
+// ==================== HUD UPDATE ====================
+function updateHUD() {
+  hudScore.textContent = state.score;
+  hudHits.textContent  = state.hits;
+
+  const acc = state.clicks > 0 ? Math.round(state.hits / state.clicks * 100) : 100;
+  hudAcc.textContent = acc + '%';
+  accFill.style.width = acc + '%';
+  accFill.style.background = acc >= 80 ? 'var(--easy)' : acc >= 60 ? 'var(--medium)' : 'var(--hard)';
+
+  streakNum.textContent = state.streak;
+  streakDisp.style.opacity = state.streak > 0 ? '1' : '0.3';
+
+  if (state.combo > 1) {
+    comboDisp.textContent = 'x' + state.combo + ' COMBO';
+    comboDisp.style.display = 'block';
+    comboDisp.style.color = state.combo >= 4 ? '#ffd700' : '#fff';
+  } else {
+    comboDisp.style.display = 'none';
+  }
+}
+
+// ==================== VFX ====================
+function spawnHitBurst(x, y, color) {
+  const burst = document.createElement('div');
+  burst.className = 'hit-burst';
+  burst.style.cssText = `left:${x}px;top:${y}px;width:30px;height:30px;background:${color};opacity:0.6`;
+  document.body.appendChild(burst);
+  setTimeout(() => burst.remove(), 400);
+}
+
+function spawnHitText(x, y, txt, color) {
+  const el = document.createElement('div');
+  el.className = 'hit-text';
+  el.textContent = txt;
+  el.style.cssText = `left:${x}px;top:${y}px;color:${color}`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 650);
+}
+
+function flashMiss() {
+  const fl = document.createElement('div');
+  fl.className = 'miss-flash';
+  document.body.appendChild(fl);
+  setTimeout(() => fl.remove(), 350);
+}
+
+// ==================== UTILS ====================
+function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+
+function lighten(hex, pct) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, ((n>>16)&0xff) + pct);
+  const g = Math.min(255, ((n>>8)&0xff) + pct);
+  const b = Math.min(255, (n&0xff) + pct);
+  return '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+function darken(hex, pct) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.max(0, ((n>>16)&0xff) - pct);
+  const g = Math.max(0, ((n>>8)&0xff) - pct);
+  const b = Math.max(0, (n&0xff) - pct);
+  return '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+</script>
+</body>
+</html>
